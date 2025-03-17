@@ -17,7 +17,6 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
   const isSelected = selectedCamera === camera.id;
   const transformerRef = React.useRef<any>(null);
   const groupRef = React.useRef<any>(null);
-  const wedgeRef = React.useRef<any>(null);
   
   React.useEffect(() => {
     if (isSelected && transformerRef.current && groupRef.current) {
@@ -91,18 +90,8 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
       x: node.x(),
       y: node.y(),
       width: newWidth,
-      height: newHeight
-    });
-  };
-
-  // Fonction pour gérer la rotation du champ de vision
-  const handleRotate = (e: any) => {
-    if (!wedgeRef.current) return;
-    
-    const rotation = wedgeRef.current.rotation();
-    console.log(`Caméra tournée: ${camera.id}, nouvelle rotation: ${rotation}°`);
-    updateCamera(camera.id, {
-      rotation: rotation
+      height: newHeight,
+      viewDistance: camera.viewDistance * scaleX // Mettre à jour la distance de vue proportionnellement
     });
   };
 
@@ -111,23 +100,7 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
 
   return (
     <>
-      {/* Camera view angle */}
-      <Wedge
-        ref={wedgeRef}
-        x={camera.x}
-        y={camera.y}
-        radius={camera.viewDistance}
-        angle={camera.angle}
-        fill="rgba(255, 0, 0, 0.3)"
-        stroke="rgba(255, 0, 0, 0.6)"
-        strokeWidth={1}
-        rotation={camera.rotation || -camera.angle / 2}
-        opacity={camera.opacity}
-        draggable={isSelected}
-        onDragEnd={handleRotate}
-      />
-      
-      {/* Camera icon */}
+      {/* Camera group with icon and view angle */}
       <Group
         ref={groupRef}
         x={camera.x}
@@ -141,6 +114,20 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
         onDragEnd={handleDragEnd}
         onTransformEnd={handleTransformEnd}
       >
+        {/* Camera view angle - inside the group to move with camera */}
+        <Wedge
+          x={0}
+          y={0}
+          radius={camera.viewDistance}
+          angle={camera.angle}
+          fill="rgba(255, 0, 0, 0.3)"
+          stroke="rgba(255, 0, 0, 0.6)"
+          strokeWidth={1}
+          rotation={camera.rotation || -camera.angle / 2}
+          opacity={camera.opacity}
+        />
+        
+        {/* Camera icon */}
         {getCameraIcon()}
       </Group>
       
@@ -161,7 +148,7 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
           keepRatio={true}
           enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
           boundBoxFunc={(oldBox, newBox) => {
-            // Limit minimum size to 5px and maximum to 100px for better control on small plans
+            // Limit minimum size to 10px and maximum to 100px for better control on small plans
             if (newBox.width < 10 || newBox.height < 10) {
               return oldBox;
             }
