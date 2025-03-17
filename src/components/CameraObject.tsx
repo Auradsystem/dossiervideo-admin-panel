@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Group, Circle, Wedge, Text, Transformer, Path } from 'react-konva';
+import { Group, Circle, Wedge, Text, Transformer, Path, Label, Tag } from 'react-konva';
 import { Camera, cameraIcons } from '../types/Camera';
 import { useAppContext } from '../context/AppContext';
 
@@ -17,7 +17,7 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
   const isSelected = selectedCamera === camera.id;
   const transformerRef = useRef<any>(null);
   const groupRef = useRef<any>(null);
-  const textRef = useRef<any>(null);
+  const labelRef = useRef<any>(null);
   
   // Effet pour mettre à jour le transformer quand la caméra est sélectionnée
   useEffect(() => {
@@ -27,14 +27,16 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
     }
   }, [isSelected]);
 
-  // Effet pour maintenir le texte horizontal même quand le groupe est transformé
+  // Effet pour repositionner le label après rotation ou redimensionnement
   useEffect(() => {
-    if (textRef.current && groupRef.current) {
-      // Annuler la rotation du groupe pour le texte
-      const groupRotation = groupRef.current.rotation() || 0;
-      textRef.current.rotation(-groupRotation);
+    if (labelRef.current) {
+      // Positionner le label au-dessus de la caméra, indépendamment de la rotation
+      labelRef.current.position({
+        x: camera.x,
+        y: camera.y - camera.height/2 - 20
+      });
     }
-  }, [camera.rotation]);
+  }, [camera.x, camera.y, camera.width, camera.height, camera.rotation]);
 
   const getCameraIcon = () => {
     const scale = camera.width / 24; // Scale factor based on camera width
@@ -78,30 +80,39 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
   };
 
   const handleDragEnd = (e: any) => {
+    const newX = e.target.x();
+    const newY = e.target.y();
+    
     updateCamera(camera.id, {
-      x: e.target.x(),
-      y: e.target.y()
+      x: newX,
+      y: newY
     });
   };
 
   const handleTransformEnd = (e: any) => {
     const node = groupRef.current;
+    if (!node) return;
+    
+    // Récupérer les valeurs actuelles
     const scaleX = node.scaleX();
+    const scaleY = node.scaleY();
     const rotation = node.rotation();
     
-    // Reset scale but keep rotation
+    // Calculer les nouvelles dimensions
+    const newWidth = Math.max(10, camera.width * scaleX);
+    const newHeight = Math.max(10, camera.height * scaleY);
+    
+    // Réinitialiser l'échelle mais conserver la rotation et la position
     node.scaleX(1);
     node.scaleY(1);
     
-    const newWidth = Math.max(5, camera.width * scaleX);
-    const newHeight = newWidth; // Garder la caméra carrée
-    
+    // Mettre à jour la caméra avec les nouvelles valeurs
     updateCamera(camera.id, {
       x: node.x(),
       y: node.y(),
       width: newWidth,
       height: newHeight,
-      viewDistance: camera.viewDistance * scaleX, // Mettre à jour la distance de vue proportionnellement
+      viewDistance: camera.viewDistance * scaleX, // Proportionnel à l'échelle
       rotation: rotation
     });
   };
@@ -111,7 +122,7 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
 
   return (
     <>
-      {/* Camera group with icon, view angle, and text */}
+      {/* Groupe principal pour la caméra et son champ de vision */}
       <Group
         ref={groupRef}
         x={camera.x}
@@ -123,7 +134,7 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
         onDragEnd={handleDragEnd}
         onTransformEnd={handleTransformEnd}
       >
-        {/* Camera view angle */}
+        {/* Champ de vision */}
         <Wedge
           x={0}
           y={0}
@@ -136,24 +147,37 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
           opacity={camera.opacity}
         />
         
-        {/* Camera icon */}
+        {/* Icône de caméra */}
         {getCameraIcon()}
-        
-        {/* Camera label - inside the group but with counter-rotation to stay horizontal */}
+      </Group>
+      
+      {/* Label séparé pour le texte - toujours horizontal */}
+      <Label
+        ref={labelRef}
+        x={camera.x}
+        y={camera.y - camera.height/2 - 20}
+        onClick={() => setSelectedCamera(camera.id)}
+        onTap={() => setSelectedCamera(camera.id)}
+      >
+        <Tag
+          fill="transparent"
+          pointerDirection="down"
+          pointerWidth={10}
+          pointerHeight={10}
+          lineJoin="round"
+        />
         <Text
-          ref={textRef}
           text={camera.name}
           fontSize={fontSize}
           fill="#000"
-          x={0}
-          y={-camera.height / 2 - fontSize - 5}
+          padding={2}
           align="center"
           width={camera.width * 2}
           offsetX={camera.width}
-          rotation={-(camera.rotation || 0)} // Counter-rotation pour rester horizontal
         />
-      </Group>
+      </Label>
       
+      {/* Transformer pour redimensionner et faire pivoter la caméra */}
       {isSelected && (
         <Transformer
           ref={transformerRef}
@@ -161,7 +185,7 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
           rotateEnabled={true}
           enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
           boundBoxFunc={(oldBox, newBox) => {
-            // Limit minimum size to 10px and maximum to 100px for better control on small plans
+            // Limiter la taille min/max
             if (newBox.width < 10 || newBox.height < 10) {
               return oldBox;
             }
