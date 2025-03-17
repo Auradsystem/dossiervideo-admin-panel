@@ -135,26 +135,33 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
         
         {/* Camera icon */}
         {getCameraIcon()}
-        
-        {/* Camera label */}
-        <Text
-          text={camera.name}
-          fontSize={12}
-          fill="#000"
-          offsetX={-camera.width / 2}
-          offsetY={-camera.height / 2 - 15}
-          align="center"
-          width={camera.width * 2}
-        />
       </Group>
+      
+      {/* Camera label - maintenant en dehors du Group pour rester horizontal */}
+      <Text
+        text={camera.name}
+        fontSize={12}
+        fill="#000"
+        x={camera.x - camera.width / 2}
+        y={camera.y - camera.height / 2 - 15}
+        align="center"
+        width={camera.width * 2}
+      />
       
       {isSelected && (
         <Transformer
           ref={transformerRef}
           boundBoxFunc={(oldBox, newBox) => {
-            // Limit minimum size
-            if (newBox.width < 10 || newBox.height < 10) {
+            // Limit minimum size to 5px and maximum to 100px for better control on small plans
+            if (newBox.width < 5 || newBox.height < 5) {
               return oldBox;
+            }
+            if (newBox.width > 100 || newBox.height > 100) {
+              return {
+                ...newBox,
+                width: Math.min(newBox.width, 100),
+                height: Math.min(newBox.height, 100)
+              };
             }
             return newBox;
           }}
