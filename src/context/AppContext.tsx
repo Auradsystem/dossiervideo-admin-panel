@@ -141,13 +141,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const initApp = async () => {
       try {
         // Vérifier s'il y a une session active
-        const { session, user, error } = await supabaseAuth.getSession();
+        const { data, error } = await supabase.auth.getSession();
         
-        if (session && user) {
+        if (data.session && data.session.user) {
+          const userData = {
+            id: data.session.user.id,
+            username: data.session.user.email || '',
+            email: data.session.user.email || '',
+            isAdmin: data.session.user.user_metadata?.is_admin || false,
+            createdAt: new Date(data.session.user.created_at || Date.now())
+          };
+          
           setIsAuthenticated(true);
-          setCurrentUser(user);
-          setIsAdmin(user.isAdmin);
-          console.log('Session restaurée:', user);
+          setCurrentUser(userData);
+          setIsAdmin(userData.isAdmin);
+          console.log('Session restaurée:', userData);
         } else {
           // Initialiser les utilisateurs par défaut si nécessaire
           await initializeDefaultUsers();
@@ -165,15 +173,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         console.log('Événement d\'authentification:', event);
         
         if (event === 'SIGNED_IN' && session) {
-          // Récupérer les informations utilisateur complètes
-          const { user, error } = await supabaseAuth.getSession();
+          const userData = {
+            id: session.user.id,
+            username: session.user.email || '',
+            email: session.user.email || '',
+            isAdmin: session.user.user_metadata?.is_admin || false,
+            createdAt: new Date(session.user.created_at || Date.now()),
+            lastLogin: new Date()
+          };
           
-          if (user && !error) {
-            setIsAuthenticated(true);
-            setCurrentUser(user);
-            setIsAdmin(user.isAdmin);
-            console.log('Utilisateur connecté:', user);
-          }
+          setIsAuthenticated(true);
+          setCurrentUser(userData);
+          setIsAdmin(userData.isAdmin);
+          console.log('Utilisateur connecté:', userData);
         } else if (event === 'SIGNED_OUT') {
           setIsAuthenticated(false);
           setCurrentUser(null);
@@ -217,16 +229,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsSyncing(true);
       
       // Connexion via Supabase
-      const { user, error } = await supabaseAuth.signIn(email, password);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
       
       if (error) {
         console.error('Erreur de connexion:', error);
         return false;
       }
       
-      if (user) {
-        // L'authentification est gérée par l'écouteur onAuthStateChange
-        console.log('Connexion réussie');
+      if (data.user && data.session) {
+        const userData = {
+          id: data.user.id,
+          username: data.user.email || '',
+          email: data.user.email || '',
+          isAdmin: data.user.user_metadata?.is_admin || false,
+          createdAt: new Date(data.user.created_at || Date.now()),
+          lastLogin: new Date()
+        };
+        
+        setIsAuthenticated(true);
+        setCurrentUser(userData);
+        setIsAdmin(userData.isAdmin);
+        console.log('Connexion réussie:', userData);
         return true;
       }
       
@@ -244,9 +270,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsSyncing(true);
       
       // Déconnexion de Supabase
-      await supabaseAuth.signOut();
+      const { error } = await supabase.auth.signOut();
       
-      // La déconnexion est gérée par l'écouteur onAuthStateChange
+      if (error) {
+        console.error('Erreur lors de la déconnexion:', error);
+        return;
+      }
+      
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+      setIsAdmin(false);
+      setIsAdminMode(false);
+      console.log('Déconnexion réussie');
     } catch (error) {
       console.error('Erreur lors de la déconnexion:', error);
     } finally {
@@ -260,15 +295,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsSyncing(true);
       
       // Utiliser l'API standard de Supabase pour l'inscription
-      const { user, error } = await supabaseAuth.signUp(email, password, { is_admin: isAdmin });
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { is_admin: isAdmin }
+        }
+      });
       
       if (error) {
         console.error('Erreur d\'inscription:', error);
         return false;
       }
       
-      if (user) {
-        console.log('Inscription réussie via l\'API standard');
+      if (data.user) {
+        console.log('Inscription réussie:', data.user);
         return true;
       }
       
