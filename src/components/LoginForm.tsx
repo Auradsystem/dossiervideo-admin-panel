@@ -13,7 +13,7 @@ import {
   Tab
 } from '@mui/material';
 import { useAppContext } from '../context/AppContext';
-import { supabase, supabaseAuth } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -106,13 +106,19 @@ const LoginForm: React.FC = () => {
     setIsLoading(true);
     
     try {
-      const { user, error: signUpError } = await supabaseAuth.signUp(email, password);
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { is_admin: false }
+        }
+      });
       
       if (signUpError) {
         throw signUpError;
       }
       
-      if (user) {
+      if (data.user) {
         setSuccess('Inscription réussie ! Vous pouvez maintenant vous connecter.');
         setEmail('');
         setPassword('');
@@ -123,7 +129,7 @@ const LoginForm: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Erreur lors de l\'inscription:', error);
-      if (error.message.includes('already registered')) {
+      if (error.message && error.message.includes('already registered')) {
         setError('Cet email est déjà utilisé');
       } else {
         setError(error.message || 'Une erreur est survenue lors de l\'inscription');
@@ -145,7 +151,6 @@ const LoginForm: React.FC = () => {
     setIsLoading(true);
     
     try {
-      // Appeler la fonction de réinitialisation du mot de passe de Supabase
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
