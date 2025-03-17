@@ -88,6 +88,17 @@ const Sidebar: React.FC = () => {
     setSelectedIconType(event.target.value as string);
   };
 
+  // Fonction pour gérer le changement de taille de la caméra
+  const handleCameraSizeChange = (event: any, newValue: number | number[]) => {
+    if (selectedCamera) {
+      const size = newValue as number;
+      updateCamera(selectedCamera, { 
+        width: size,
+        height: size
+      });
+    }
+  };
+
   return (
     <Drawer
       variant="permanent"
@@ -263,10 +274,7 @@ const Sidebar: React.FC = () => {
           </Typography>
           <Slider
             value={selectedCameraData.width}
-            onChange={(_, value) => {
-              handleCameraChange('width', value);
-              handleCameraChange('height', value);
-            }}
+            onChange={handleCameraSizeChange}
             min={10}
             max={100}
             step={5}

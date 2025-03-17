@@ -78,18 +78,20 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
   const handleTransformEnd = (e: any) => {
     const node = groupRef.current;
     const scaleX = node.scaleX();
-    const scaleY = node.scaleY();
     
     // Reset scale and apply it to width and height
     node.scaleX(1);
     node.scaleY(1);
     
-    console.log(`Caméra redimensionnée: ${camera.id}, nouvelle taille: ${Math.max(5, camera.width * scaleX)} x ${Math.max(5, camera.height * scaleY)}`);
+    const newWidth = Math.max(5, camera.width * scaleX);
+    const newHeight = newWidth; // Garder la caméra carrée
+    
+    console.log(`Caméra redimensionnée: ${camera.id}, nouvelle taille: ${newWidth}`);
     updateCamera(camera.id, {
       x: node.x(),
       y: node.y(),
-      width: Math.max(5, camera.width * scaleX),
-      height: Math.max(5, camera.height * scaleY)
+      width: newWidth,
+      height: newHeight
     });
   };
 
@@ -104,8 +106,28 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
     });
   };
 
+  // Calculer la taille du texte proportionnelle à la caméra
+  const fontSize = Math.max(10, Math.min(16, camera.width * 0.4));
+
   return (
     <>
+      {/* Camera view angle */}
+      <Wedge
+        ref={wedgeRef}
+        x={camera.x}
+        y={camera.y}
+        radius={camera.viewDistance}
+        angle={camera.angle}
+        fill="rgba(255, 0, 0, 0.3)"
+        stroke="rgba(255, 0, 0, 0.6)"
+        strokeWidth={1}
+        rotation={camera.rotation || -camera.angle / 2}
+        opacity={camera.opacity}
+        draggable={isSelected}
+        onDragEnd={handleRotate}
+      />
+      
+      {/* Camera icon */}
       <Group
         ref={groupRef}
         x={camera.x}
@@ -119,31 +141,16 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
         onDragEnd={handleDragEnd}
         onTransformEnd={handleTransformEnd}
       >
-        {/* Camera view angle - avec rotation correcte */}
-        <Wedge
-          ref={wedgeRef}
-          radius={camera.viewDistance}
-          angle={camera.angle}
-          fill="rgba(255, 0, 0, 0.3)"
-          stroke="rgba(255, 0, 0, 0.6)"
-          strokeWidth={1}
-          rotation={camera.rotation || -camera.angle / 2}
-          opacity={camera.opacity}
-          draggable={isSelected}
-          onDragEnd={handleRotate}
-        />
-        
-        {/* Camera icon */}
         {getCameraIcon()}
       </Group>
       
-      {/* Camera label - maintenant en dehors du Group pour rester horizontal */}
+      {/* Camera label - en dehors du Group pour rester horizontal */}
       <Text
         text={camera.name}
-        fontSize={12}
+        fontSize={fontSize}
         fill="#000"
-        x={camera.x - camera.width / 2}
-        y={camera.y - camera.height / 2 - 15}
+        x={camera.x - camera.width}
+        y={camera.y - camera.height / 2 - fontSize - 5}
         align="center"
         width={camera.width * 2}
       />
@@ -151,9 +158,11 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
       {isSelected && (
         <Transformer
           ref={transformerRef}
+          keepRatio={true}
+          enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
           boundBoxFunc={(oldBox, newBox) => {
             // Limit minimum size to 5px and maximum to 100px for better control on small plans
-            if (newBox.width < 5 || newBox.height < 5) {
+            if (newBox.width < 10 || newBox.height < 10) {
               return oldBox;
             }
             if (newBox.width > 100 || newBox.height > 100) {

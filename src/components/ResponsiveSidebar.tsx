@@ -74,11 +74,13 @@ const FileUploadButton = memo(({ onFileChange, fileInputKey }: { onFileChange: (
 const CameraEditor = memo(({ 
   selectedCameraData, 
   handleCameraChange, 
-  handleDeleteCamera 
+  handleDeleteCamera,
+  handleCameraSizeChange
 }: { 
   selectedCameraData: any, 
   handleCameraChange: (field: string, value: any) => void, 
-  handleDeleteCamera: () => void 
+  handleDeleteCamera: () => void,
+  handleCameraSizeChange: (event: any, newValue: number | number[]) => void
 }) => (
   <Box sx={{ pl: 2, pr: 2, pt: 1 }}>
     <TextField
@@ -161,10 +163,7 @@ const CameraEditor = memo(({
     </Typography>
     <Slider
       value={selectedCameraData.width}
-      onChange={(_, value) => {
-        handleCameraChange('width', value);
-        handleCameraChange('height', value);
-      }}
+      onChange={handleCameraSizeChange}
       min={10}
       max={100}
       step={5}
@@ -334,6 +333,17 @@ const ResponsiveSidebar: React.FC<ResponsiveSidebarProps> = ({ open, onClose }) 
     }
   };
 
+  // Fonction pour gérer le changement de taille de la caméra
+  const handleCameraSizeChange = (event: any, newValue: number | number[]) => {
+    if (selectedCamera) {
+      const size = newValue as number;
+      updateCamera(selectedCamera, { 
+        width: size,
+        height: size
+      });
+    }
+  };
+
   const handleDeleteCamera = () => {
     if (selectedCamera && window.confirm('Êtes-vous sûr de vouloir supprimer cette caméra ?')) {
       deleteCamera(selectedCamera);
@@ -455,7 +465,8 @@ const ResponsiveSidebar: React.FC<ResponsiveSidebarProps> = ({ open, onClose }) 
                   <CameraEditor 
                     selectedCameraData={selectedCameraData} 
                     handleCameraChange={handleCameraChange} 
-                    handleDeleteCamera={handleDeleteCamera} 
+                    handleDeleteCamera={handleDeleteCamera}
+                    handleCameraSizeChange={handleCameraSizeChange}
                   />
                 </Collapse>
               </>
@@ -503,7 +514,7 @@ const ResponsiveSidebar: React.FC<ResponsiveSidebarProps> = ({ open, onClose }) 
   ), [
     isMobile, isSmallScreen, activeTab, openSection, pdfFile, fileInputKey,
     selectedCameraData, namingPattern, nextCameraNumber, selectedIconType,
-    handleFileChange, handleCameraChange, handleDeleteCamera,
+    handleFileChange, handleCameraChange, handleDeleteCamera, handleCameraSizeChange,
     handleNamingPatternChange, handleNextNumberChange, handleIconTypeChange,
     toggleSection, clearCurrentPage, previewPdf, exportCurrentPage, exportPdf, onClose
   ]);
