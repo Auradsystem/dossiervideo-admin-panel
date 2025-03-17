@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Group, Circle, Wedge, Text, Transformer, Path, Label, Tag } from 'react-konva';
 import { Camera, cameraIcons } from '../types/Camera';
 import { useAppContext } from '../context/AppContext';
@@ -18,6 +18,9 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
   const transformerRef = useRef<any>(null);
   const groupRef = useRef<any>(null);
   const labelRef = useRef<any>(null);
+  
+  // État pour suivre les dimensions pendant la transformation
+  const [transforming, setTransforming] = useState(false);
   
   // Effet pour mettre à jour le transformer quand la caméra est sélectionnée
   useEffect(() => {
@@ -89,7 +92,26 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
     });
   };
 
+  const handleTransformStart = () => {
+    setTransforming(true);
+  };
+
+  const handleTransform = (e: any) => {
+    // Pendant la transformation, mettre à jour uniquement la position du label
+    // sans modifier les données de la caméra
+    if (labelRef.current && groupRef.current) {
+      const node = groupRef.current;
+      labelRef.current.position({
+        x: node.x(),
+        y: node.y() - (camera.height * node.scaleY()) / 2 - 20
+      });
+      labelRef.current.getLayer().batchDraw();
+    }
+  };
+
   const handleTransformEnd = (e: any) => {
+    setTransforming(false);
+    
     const node = groupRef.current;
     if (!node) return;
     
@@ -132,6 +154,8 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
         onClick={() => setSelectedCamera(camera.id)}
         onTap={() => setSelectedCamera(camera.id)}
         onDragEnd={handleDragEnd}
+        onTransformStart={handleTransformStart}
+        onTransform={handleTransform}
         onTransformEnd={handleTransformEnd}
       >
         {/* Champ de vision */}
