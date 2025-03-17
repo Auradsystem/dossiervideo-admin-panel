@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Group, Circle, Wedge, Text, Transformer, Path } from 'react-konva';
 import { Camera, cameraIcons } from '../types/Camera';
 import { useAppContext } from '../context/AppContext';
@@ -15,15 +15,26 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
   } = useAppContext();
   
   const isSelected = selectedCamera === camera.id;
-  const transformerRef = React.useRef<any>(null);
-  const groupRef = React.useRef<any>(null);
+  const transformerRef = useRef<any>(null);
+  const groupRef = useRef<any>(null);
+  const textRef = useRef<any>(null);
   
-  React.useEffect(() => {
+  // Effet pour mettre à jour le transformer quand la caméra est sélectionnée
+  useEffect(() => {
     if (isSelected && transformerRef.current && groupRef.current) {
       transformerRef.current.nodes([groupRef.current]);
       transformerRef.current.getLayer().batchDraw();
     }
   }, [isSelected]);
+
+  // Effet pour maintenir le texte horizontal même quand le groupe est transformé
+  useEffect(() => {
+    if (textRef.current && groupRef.current) {
+      // Annuler la rotation du groupe pour le texte
+      const groupRotation = groupRef.current.rotation() || 0;
+      textRef.current.rotation(-groupRotation);
+    }
+  }, [camera.rotation]);
 
   const getCameraIcon = () => {
     const scale = camera.width / 24; // Scale factor based on camera width
@@ -67,7 +78,6 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
   };
 
   const handleDragEnd = (e: any) => {
-    console.log(`Caméra déplacée: ${camera.id} à la position (${e.target.x()}, ${e.target.y()})`);
     updateCamera(camera.id, {
       x: e.target.x(),
       y: e.target.y()
@@ -77,21 +87,22 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
   const handleTransformEnd = (e: any) => {
     const node = groupRef.current;
     const scaleX = node.scaleX();
+    const rotation = node.rotation();
     
-    // Reset scale and apply it to width and height
+    // Reset scale but keep rotation
     node.scaleX(1);
     node.scaleY(1);
     
     const newWidth = Math.max(5, camera.width * scaleX);
     const newHeight = newWidth; // Garder la caméra carrée
     
-    console.log(`Caméra redimensionnée: ${camera.id}, nouvelle taille: ${newWidth}`);
     updateCamera(camera.id, {
       x: node.x(),
       y: node.y(),
       width: newWidth,
       height: newHeight,
-      viewDistance: camera.viewDistance * scaleX // Mettre à jour la distance de vue proportionnellement
+      viewDistance: camera.viewDistance * scaleX, // Mettre à jour la distance de vue proportionnellement
+      rotation: rotation
     });
   };
 
@@ -100,21 +111,19 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
 
   return (
     <>
-      {/* Camera group with icon and view angle */}
+      {/* Camera group with icon, view angle, and text */}
       <Group
         ref={groupRef}
         x={camera.x}
         y={camera.y}
         draggable
-        onClick={() => {
-          console.log(`Caméra sélectionnée: ${camera.id}`);
-          setSelectedCamera(camera.id);
-        }}
+        rotation={camera.rotation || 0}
+        onClick={() => setSelectedCamera(camera.id)}
         onTap={() => setSelectedCamera(camera.id)}
         onDragEnd={handleDragEnd}
         onTransformEnd={handleTransformEnd}
       >
-        {/* Camera view angle - inside the group to move with camera */}
+        {/* Camera view angle */}
         <Wedge
           x={0}
           y={0}
@@ -123,29 +132,33 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
           fill="rgba(255, 0, 0, 0.3)"
           stroke="rgba(255, 0, 0, 0.6)"
           strokeWidth={1}
-          rotation={camera.rotation || -camera.angle / 2}
+          rotation={-camera.angle / 2}
           opacity={camera.opacity}
         />
         
         {/* Camera icon */}
         {getCameraIcon()}
+        
+        {/* Camera label - inside the group but with counter-rotation to stay horizontal */}
+        <Text
+          ref={textRef}
+          text={camera.name}
+          fontSize={fontSize}
+          fill="#000"
+          x={0}
+          y={-camera.height / 2 - fontSize - 5}
+          align="center"
+          width={camera.width * 2}
+          offsetX={camera.width}
+          rotation={-(camera.rotation || 0)} // Counter-rotation pour rester horizontal
+        />
       </Group>
-      
-      {/* Camera label - en dehors du Group pour rester horizontal */}
-      <Text
-        text={camera.name}
-        fontSize={fontSize}
-        fill="#000"
-        x={camera.x - camera.width}
-        y={camera.y - camera.height / 2 - fontSize - 5}
-        align="center"
-        width={camera.width * 2}
-      />
       
       {isSelected && (
         <Transformer
           ref={transformerRef}
           keepRatio={true}
+          rotateEnabled={true}
           enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
           boundBoxFunc={(oldBox, newBox) => {
             // Limit minimum size to 10px and maximum to 100px for better control on small plans
