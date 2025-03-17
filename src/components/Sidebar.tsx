@@ -6,19 +6,16 @@ import {
   Typography, 
   Button, 
   TextField, 
-  IconButton,
   Slider,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   FormHelperText,
-  Paper,
   Stack
 } from '@mui/material';
-import { Upload, Download, Eye, Save, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Upload, Download, Eye, Save, Trash2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { CameraType, cameraIcons } from '../types/Camera';
 
 const drawerWidth = 300;
 
