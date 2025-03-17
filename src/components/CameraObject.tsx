@@ -19,8 +19,20 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
   const groupRef = useRef<any>(null);
   const labelRef = useRef<any>(null);
   
-  // État pour suivre les dimensions pendant la transformation
-  const [transforming, setTransforming] = useState(false);
+  // Références pour les dimensions et positions pendant la transformation
+  const transformState = useRef({
+    initialWidth: camera.width,
+    initialHeight: camera.height,
+    initialX: camera.x,
+    initialY: camera.y,
+    initialViewDistance: camera.viewDistance,
+    initialRotation: camera.rotation || 0,
+    scaleX: 1,
+    scaleY: 1,
+    x: camera.x,
+    y: camera.y,
+    rotation: camera.rotation || 0
+  });
   
   // Effet pour mettre à jour le transformer quand la caméra est sélectionnée
   useEffect(() => {
@@ -33,13 +45,30 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
   // Effet pour repositionner le label après rotation ou redimensionnement
   useEffect(() => {
     if (labelRef.current) {
-      // Positionner le label au-dessus de la caméra, indépendamment de la rotation
-      labelRef.current.position({
-        x: camera.x,
-        y: camera.y - camera.height/2 - 20
-      });
+      updateLabelPosition();
     }
   }, [camera.x, camera.y, camera.width, camera.height, camera.rotation]);
+
+  // Fonction pour mettre à jour la position du label
+  const updateLabelPosition = () => {
+    if (!labelRef.current) return;
+    
+    // Positionner le label au-dessus de la caméra
+    labelRef.current.position({
+      x: camera.x,
+      y: camera.y - camera.height/2 - 20
+    });
+    
+    // Mettre à jour la taille du texte
+    const textNode = labelRef.current.findOne('Text');
+    if (textNode) {
+      textNode.fontSize(Math.max(10, Math.min(16, camera.width * 0.4)));
+      textNode.width(camera.width * 2);
+      textNode.offsetX(camera.width);
+    }
+    
+    labelRef.current.getLayer()?.batchDraw();
+  };
 
   const getCameraIcon = () => {
     const scale = camera.width / 24; // Scale factor based on camera width
@@ -82,6 +111,25 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
     );
   };
 
+  const handleDragStart = () => {
+    // Sauvegarder l'état initial pour le drag
+    if (groupRef.current) {
+      transformState.current.initialX = camera.x;
+      transformState.current.initialY = camera.y;
+    }
+  };
+
+  const handleDragMove = (e: any) => {
+    // Mettre à jour la position du label pendant le drag
+    if (labelRef.current) {
+      labelRef.current.position({
+        x: e.target.x(),
+        y: e.target.y() - camera.height/2 - 20
+      });
+      labelRef.current.getLayer()?.batchDraw();
+    }
+  };
+
   const handleDragEnd = (e: any) => {
     const newX = e.target.x();
     const newY = e.target.y();
@@ -93,48 +141,94 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
   };
 
   const handleTransformStart = () => {
-    setTransforming(true);
-  };
-
-  const handleTransform = (e: any) => {
-    // Pendant la transformation, mettre à jour uniquement la position du label
-    // sans modifier les données de la caméra
-    if (labelRef.current && groupRef.current) {
+    // Sauvegarder l'état initial pour la transformation
+    if (groupRef.current) {
       const node = groupRef.current;
-      labelRef.current.position({
+      
+      transformState.current = {
+        initialWidth: camera.width,
+        initialHeight: camera.height,
+        initialX: camera.x,
+        initialY: camera.y,
+        initialViewDistance: camera.viewDistance,
+        initialRotation: camera.rotation || 0,
+        scaleX: node.scaleX(),
+        scaleY: node.scaleY(),
         x: node.x(),
-        y: node.y() - (camera.height * node.scaleY()) / 2 - 20
-      });
-      labelRef.current.getLayer().batchDraw();
+        y: node.y(),
+        rotation: node.rotation()
+      };
     }
   };
 
-  const handleTransformEnd = (e: any) => {
-    setTransforming(false);
+  const handleTransform = (e: any) => {
+    // Obtenir le nœud transformé
+    const node = e.target;
     
-    const node = groupRef.current;
-    if (!node) return;
-    
-    // Récupérer les valeurs actuelles
+    // Calculer les nouvelles valeurs
     const scaleX = node.scaleX();
     const scaleY = node.scaleY();
     const rotation = node.rotation();
+    const x = node.x();
+    const y = node.y();
+    
+    // Mettre à jour l'état de transformation
+    transformState.current.scaleX = scaleX;
+    transformState.current.scaleY = scaleY;
+    transformState.current.x = x;
+    transformState.current.y = y;
+    transformState.current.rotation = rotation;
     
     // Calculer les nouvelles dimensions
-    const newWidth = Math.max(10, camera.width * scaleX);
-    const newHeight = Math.max(10, camera.height * scaleY);
+    const newWidth = transformState.current.initialWidth * scaleX;
+    const newHeight = transformState.current.initialHeight * scaleY;
     
-    // Réinitialiser l'échelle mais conserver la rotation et la position
+    // Mettre à jour la position du label en temps réel
+    if (labelRef.current) {
+      labelRef.current.position({
+        x: x,
+        y: y - (newHeight / 2) - 20
+      });
+      
+      // Mettre à jour la taille du texte en temps réel
+      const textNode = labelRef.current.findOne('Text');
+      if (textNode) {
+        textNode.fontSize(Math.max(10, Math.min(16, newWidth * 0.4)));
+        textNode.width(newWidth * 2);
+        textNode.offsetX(newWidth);
+      }
+      
+      labelRef.current.getLayer()?.batchDraw();
+    }
+  };
+
+  const handleTransformEnd = () => {
+    const node = groupRef.current;
+    if (!node) return;
+    
+    // Récupérer les valeurs finales
+    const scaleX = transformState.current.scaleX;
+    const scaleY = transformState.current.scaleY;
+    const rotation = transformState.current.rotation;
+    const x = transformState.current.x;
+    const y = transformState.current.y;
+    
+    // Calculer les nouvelles dimensions
+    const newWidth = Math.max(10, transformState.current.initialWidth * scaleX);
+    const newHeight = Math.max(10, transformState.current.initialHeight * scaleY);
+    const newViewDistance = transformState.current.initialViewDistance * scaleX;
+    
+    // Réinitialiser l'échelle
     node.scaleX(1);
     node.scaleY(1);
     
     // Mettre à jour la caméra avec les nouvelles valeurs
     updateCamera(camera.id, {
-      x: node.x(),
-      y: node.y(),
+      x: x,
+      y: y,
       width: newWidth,
       height: newHeight,
-      viewDistance: camera.viewDistance * scaleX, // Proportionnel à l'échelle
+      viewDistance: newViewDistance,
       rotation: rotation
     });
   };
@@ -153,6 +247,8 @@ const CameraObject: React.FC<CameraObjectProps> = ({ camera }) => {
         rotation={camera.rotation || 0}
         onClick={() => setSelectedCamera(camera.id)}
         onTap={() => setSelectedCamera(camera.id)}
+        onDragStart={handleDragStart}
+        onDragMove={handleDragMove}
         onDragEnd={handleDragEnd}
         onTransformStart={handleTransformStart}
         onTransform={handleTransform}
